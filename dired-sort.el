@@ -5,7 +5,7 @@
 ;; Author: Your Name <michael.kazarian@gmail.com>
 ;; Version: 0.1
 ;; Keywords: dired, convenience
-;; Package-Requires: ((emacs "24.4"))
+;; Package-Requires: ((emacs "28.1") (transient "0.4.0"))
 ;; URL: https://github.com/MichaelKazarian/dired-sort/
 ;; License: GPL-3+
 
@@ -51,6 +51,7 @@
 (require 'dired)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'transient)
 
 (defgroup dired-sort nil
   "Toggle display of hidden files in Dired."
@@ -170,7 +171,8 @@ Preserve point and re-insert `..` if needed."
     (dired-sort-by-extension-reverse "M-g r x" "Sort by extension (reverse)")
     (dired-sort-toggle-hidden        "M-g h"   "Toggle hidden files")
     (dired-sort-show-menu            "C-c m"   "Show sort command menu")
-    (dired-sort-show-completion      "C-c c"   "Show sort completion")))
+    (dired-sort-show-completion      "C-c c"   "Show sort completion")
+    (dired-sort-transient-safe       "s"       "Sort menu (transient)")))
 
 (defvar dired-sort-mode-map
   (let ((map (make-sparse-keymap)))
@@ -211,6 +213,37 @@ Preserve point and re-insert `..` if needed."
    ((eq fn 'dired-sort-toggle-hidden)
     dired-sort-show-hidden)
    (t nil)))
+
+(defun dired-sort--active-label (fn desc)
+  "Return DESC with a leading marker if FN matches the current sort state."
+  (concat (if (dired-sort--active-p fn) "*" " ") " " desc))
+
+;;;###autoload
+(defun dired-sort-transient-safe ()
+  "Show `dired-sort-transient' unless the minibuffer is currently active."
+  (interactive)
+  (unless (active-minibuffer-window)
+    (call-interactively #'dired-sort-transient)))
+
+;;;###autoload
+(transient-define-prefix dired-sort-transient ()
+  "Sort and display options for the current Dired buffer."
+  [["Sort by"
+    ("n" (lambda () (dired-sort--active-label 'dired-sort-by-name          "Name"))
+     dired-sort-by-name)
+    ("N" (lambda () (dired-sort--active-label 'dired-sort-by-name-reverse  "Name (reverse)"))
+     dired-sort-by-name-reverse)
+    ("d" (lambda () (dired-sort--active-label 'dired-sort-by-date          "Date (oldest first)"))
+     dired-sort-by-date)
+    ("D" (lambda () (dired-sort--active-label 'dired-sort-by-date-reverse  "Date (newest first)"))
+     dired-sort-by-date-reverse)
+    ("x" (lambda () (dired-sort--active-label 'dired-sort-by-extension         "eXtension"))
+     dired-sort-by-extension)
+    ("X" (lambda () (dired-sort--active-label 'dired-sort-by-extension-reverse "eXtension (reverse)"))
+     dired-sort-by-extension-reverse)]
+   ["Display"
+    ("h" (lambda () (dired-sort--active-label 'dired-sort-toggle-hidden "Hidden files"))
+     dired-sort-toggle-hidden)]])
 
 (defun dired-sort--format-menu-line (index fn desc num-width desc-width key)
   "Format one menu line for FN with given widths."
