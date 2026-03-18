@@ -11,8 +11,8 @@
 
 ;;; Commentary:
 
-;; `dired-sort-mode` is a global minor mode that provides enhanced control over
-;; sorting and hidden file visibility in Dired buffers.
+;; `dired-sort-mode` is a buffer-local minor mode that provides enhanced control
+;; over sorting and hidden file visibility in Dired buffers.
 ;;
 ;; Features:
 ;;
@@ -23,19 +23,19 @@
 ;;     - by modification date (newest/oldest first)
 ;;     - by file extension (normal and reverse)
 ;; - Sorting always respects the current visibility state of hidden files.
-;; - Automatically updates Dired buffers when switching windows or buffers.
 ;; - Clean and aligned menu with numbered sort options, or `completing-read` interface.
 ;; - Menu highlights the currently active sort mode.
 ;;
 ;; Usage:
 ;;
-;; 1. Install and enable the mode:
+;; 1. Install and enable the mode via dired-mode-hook:
 ;;    (add-to-list 'load-path "/path/to/dired-sort/")
 ;;    (require 'dired-sort)
-;;    (dired-sort-mode 1)
+;;    (add-hook 'dired-mode-hook #'dired-sort-mode)
 ;;
 ;; 2. Use commands or menu (default bindings):
-;;    - `C-c m`   : Show sort command menu (recommended)
+;;    - `s`       : Show sort transient menu
+;;    - `C-c m`   : Show sort command menu (numbered)
 ;;    - `C-c c`   : Show sort completion (for fans of Helm/Ivy/Vertico)
 ;;    - `M-g h`   : Toggle hidden files
 ;;    - `M-g n/d/x`: Sort by Name/Date/eXtension
@@ -157,11 +157,6 @@ Preserve point and re-insert `..` if needed."
           (dired-sort-show-hidden-files)
         (dired-sort-hide-hidden-files)))))
 
-(defun dired-sort--maybe-setup ()
-  "Run setup if current buffer is Dired."
-  (when (eq major-mode 'dired-mode)
-    (dired-sort--setup)))
-
 (defconst dired-sort--commands-map
   '((dired-sort-by-name              "M-g n"   "Sort by name")
     (dired-sort-by-name-reverse      "M-g r n" "Sort by name (reverse)")
@@ -172,7 +167,7 @@ Preserve point and re-insert `..` if needed."
     (dired-sort-toggle-hidden        "M-g h"   "Toggle hidden files")
     (dired-sort-show-menu            "C-c m"   "Show sort command menu")
     (dired-sort-show-completion      "C-c c"   "Show sort completion")
-    (dired-sort-transient-safe       "s"       "Sort menu (transient)")))
+    (dired-sort-transient            "s"       "Sort menu (transient)")))
 
 (defvar dired-sort-mode-map
   (let ((map (make-sparse-keymap)))
@@ -186,14 +181,13 @@ Preserve point and re-insert `..` if needed."
 
 ;;;###autoload
 (define-minor-mode dired-sort-mode
-  "Minor mode to toggle hidden files visibility in Dired."
-  :global t
+  "Minor mode for sorting and hidden-file control in Dired buffers.
+Activate via `dired-mode-hook'."
   :group 'dired-sort
   :lighter " DSort"
   :keymap dired-sort-mode-map
-  (if dired-sort-mode
-      (add-hook 'buffer-list-update-hook #'dired-sort--maybe-setup)
-    (remove-hook 'buffer-list-update-hook #'dired-sort--maybe-setup)))
+  (when dired-sort-mode
+    (dired-sort--setup)))
 
 (defun dired-sort--active-p (fn)
   "Return non-nil if FN represents current sort state."
@@ -217,13 +211,6 @@ Preserve point and re-insert `..` if needed."
 (defun dired-sort--active-label (fn desc)
   "Return DESC with a leading marker if FN matches the current sort state."
   (concat (if (dired-sort--active-p fn) "*" " ") " " desc))
-
-;;;###autoload
-(defun dired-sort-transient-safe ()
-  "Show `dired-sort-transient' unless the minibuffer is currently active."
-  (interactive)
-  (unless (active-minibuffer-window)
-    (call-interactively #'dired-sort-transient)))
 
 ;;;###autoload
 (transient-define-prefix dired-sort-transient ()
